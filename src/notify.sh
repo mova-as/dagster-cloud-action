@@ -19,7 +19,11 @@ COMMENTS_URL="${PR_URL}/comments"
 
 # Generate cloud URL, which might be directly supplied as env var or input, or generate from org ID
 if [ -z $DAGSTER_CLOUD_URL ]; then
-  export DAGSTER_CLOUD_URL="https://dagster.cloud/${INPUT_ORGANIZATION_ID}"
+  if [ -n "$DAGSTER_CLOUD_ENV" ]; then
+    export DAGSTER_CLOUD_URL="https://${INPUT_ORGANIZATION_ID}.${DAGSTER_CLOUD_ENV}.dagster.cloud"
+  else
+    export DAGSTER_CLOUD_URL="https://dagster.cloud/${INPUT_ORGANIZATION_ID}"
+  fi
 fi
 
 export INPUT_LOCATION_NAME=$INPUT_LOCATION_NAME

@@ -19,11 +19,26 @@ runs:
         ref: ${{ github.sha }}
         path: prerun_checkout_dir
 
+    # Extract region from DAGSTER_CLOUD_URL (e.g. "eu" from "https://org.eu.dagster.cloud")
+    # and export as DAGSTER_CLOUD_ENV so the CLI constructs the correct URL.
+    # Without this, the CLI ignores DAGSTER_CLOUD_URL when DAGSTER_CLOUD_ORGANIZATION is set
+    # and falls back to https://{org}.dagster.cloud, which fails for non-US regions.
+    - name: Detect region from DAGSTER_CLOUD_URL
+      id: detect-region
+      if: ${{ env.DAGSTER_CLOUD_URL != '' }}
+      run: |
+        REGION=$(echo "$DAGSTER_CLOUD_URL" | sed -n 's|https://[^.]*\.\([^.]*\)\.dagster\.cloud.*|\1|p')
+        if [ -n "$REGION" ]; then
+          echo "DAGSTER_CLOUD_ENV=$REGION" >> "$GITHUB_ENV"
+          echo "::notice title=Dagster Region::Detected region '$REGION' from DAGSTER_CLOUD_URL"
+        fi
+      shell: bash
+
     - name: Cleanup closed PR
       id: cleanup-closed-pr
       if: ${{ github.event.pull_request.state == 'closed' }}
       # Running `ci branch-deployment` synchronizes the state of this PR with dagster cloud. For
-      # closed PRs, this marks the pr_status=closed and attaches the merge commit details. 
+      # closed PRs, this marks the pr_status=closed and attaches the merge commit details.
       run: >
         echo "::notice title=Closed Pull Request::Marking branch deployment closed for this PR, will skip remaining workflow" &&
         $GITHUB_ACTION_PATH/../../../generated/gha/dagster-cloud-${{ runner.arch == 'ARM64' && 'aarch64' || 'x86_64' }}.pex -m dagster_cloud_cli.entrypoint ci branch-deployment prerun_checkout_dir > /tmp/closed-branch-deployment.txt &&
